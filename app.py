@@ -4,6 +4,7 @@
 from flask import Flask, request
 from datetime import datetime
 import json
+import os
 
 # Import the classes to be used from the InfluxDB client library.
 # Use $pip install influxdb-client or $pip3 install influxdb-client
@@ -27,8 +28,9 @@ host = "https://eastus-1.azure.cloud2.influxdata.com/"
 
 # An appropriately scoped token or set of tokens. For ease of use in this example, we will use an all access token.
 # Note that you should not store the token in source code in a real application, but rather use a proper secrets store.
-# More information about permissions and tokens can be found here.
-token=""
+# More information about permissions and tokens can be found here:
+#
+token = os.environ["INFLUXDB_TOKEN"]
 
 # A bucket name is required for the write_api. A bucket is where you store data, and you can 
 # group related data into a bucket. You can also scope permissions to the bucket level as well.
