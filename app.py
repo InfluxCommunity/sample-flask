@@ -29,7 +29,7 @@ host = "https://eastus-1.azure.cloud2.influxdata.com/"
 # An appropriately scoped token or set of tokens. For ease of use in this example, we will use an all access token.
 # Note that you should not store the token in source code in a real application, but rather use a proper secrets store.
 # More information about permissions and tokens can be found here:
-#
+# https://docs.influxdata.com/influxdb/v2.1/security/tokens/
 token = os.environ["INFLUXDB_TOKEN"]
 
 # A bucket name is required for the write_api. A bucket is where you store data, and you can 
@@ -61,7 +61,7 @@ def ingest():
 
     # You can write any number of tags and fields in a single point, but only one measurement
     # To understand how measurements, tag values, and fields define points and series, follow this link:
-    # 
+    # https://awesome.influxdata.com/docs/part-2/influxdb-data-model/
 
     # For learning about how to ingest data at scale, and other details, follow this link:
     # https://influxdb-client.readthedocs.io/en/stable/usage.html#write
@@ -87,21 +87,29 @@ def ingest():
         return {"result":"data accepted for processing"}, 200
     except Exception as e:
         return {"result":e}, 500
+    
+    # To view the data that you are writing in the UI, you can use the data explorer
+    # Follow this link: {need to wait for /me/ to ship for this to work}
 
 @app.route("/query", methods=["POST"])
 def query():
     # Return all of the data for the user in the last hour in json format
+    # Post the following to this enpoint:
+    # {"user_id":"user1"}
 
     # Queries are written in the javsacript-like Flux language
     # Simple queries are in the format of from() |> range() |> filter()
     # Flux can also be used to do complex data transformations as well as integrations.
     # Follow this link to learn more about using Flux:
-    # 
+    # https://awesome.influxdata.com/docs/part-2/introduction-to-flux/
 
     # Your real code should authorize the user, and ensure that the user_id matches the authorization.
     user_id = request.json["user_id"]
 
     query = f"from(bucket: \"default\") |> range(start: -1h) |> filter(fn: (r) => r.user_id == \"{user_id}\")"
+
+    # uncomment the following if you prefer not to try this without posting the data
+    # query = f"from(bucket: \"default\") |> range(start: -1h) |> filter(fn: (r) => r.user_id == \"user1\")"
     print(query)
     tables = query_api.query(query, org=organization)
 
@@ -116,10 +124,12 @@ def query():
 
 @app.route("/visualize")
 def visualize():
+    # create a graph and return it in html
     pass
 
 @app.route("/alerts", methods=["POST, GET, DELETE"])
 def alerts():
+    # create, list, and delete alerts depending on method
     pass
 
 def startup_checks():
