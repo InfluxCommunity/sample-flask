@@ -97,19 +97,20 @@ def query():
     # Post the following to this enpoint:
     # {"user_id":"user1"}
 
+    # Your real code should authorize the user, and ensure that the user_id matches the authorization.
+    user_id = request.json["user_id"]
+    # uncomment the following if you prefer not to try this without posting the data
+    # user_id = "user1"
+
     # Queries are written in the javsacript-like Flux language
     # Simple queries are in the format of from() |> range() |> filter()
     # Flux can also be used to do complex data transformations as well as integrations.
     # Follow this link to learn more about using Flux:
     # https://awesome.influxdata.com/docs/part-2/introduction-to-flux/
 
-    # Your real code should authorize the user, and ensure that the user_id matches the authorization.
-    user_id = request.json["user_id"]
-
     query = f"from(bucket: \"default\") |> range(start: -1h) |> filter(fn: (r) => r.user_id == \"{user_id}\")"
 
-    # uncomment the following if you prefer not to try this without posting the data
-    # query = f"from(bucket: \"default\") |> range(start: -1h) |> filter(fn: (r) => r.user_id == \"user1\")"
+
     print(query)
     tables = query_api.query(query, org=organization)
 
