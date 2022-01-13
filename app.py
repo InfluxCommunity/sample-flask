@@ -99,7 +99,7 @@ def query():
 
     # Your real code should authorize the user, and ensure that the user_id matches the authorization.
     user_id = request.json["user_id"]
-    # uncomment the following if you prefer not to try this without posting the data
+    # uncomment the following if you prefer to try this without posting the data
     # user_id = "user1"
 
     # Queries are written in the javsacript-like Flux language
