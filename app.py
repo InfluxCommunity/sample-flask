@@ -24,10 +24,10 @@ app = Flask(__name__)
     # A bucket name
 
 # Your organization name. An organiztion is how InfluxDB groups resources such as tasks, buckets, etc...
-organization = "rick+plantbuddy@influxdata.com"
+organization = os.environ["INFLUXDB_ORGANIZATION"]
 
 # The host URL for where your instance of InfluxDB runs. This is also the URL where you reach the UI for your account.
-host = "https://eastus-1.azure.cloud2.influxdata.com/"
+host = os.environ["INFLUXDB_HOST"] 
 
 # An appropriately scoped token or set of tokens. For ease of use in this example, we will use an all access token.
 # Note that you should not store the token in source code in a real application, but rather use a proper secrets store.
@@ -37,10 +37,10 @@ token = os.environ["INFLUXDB_TOKEN"]
 
 # A bucket name is required for the write_api. A bucket is where you store data, and you can 
 # group related data into a bucket. You can also scope permissions to the bucket level as well.
-bucket_name="xxx"
+bucket_name = os.environ["INFLUXDB_BUCKET"]
 
 # Instantiate the client library
-client = InfluxDBClient(url="https://eastus-1.azure.cloud2.influxdata.com", token=token, org=organization)
+client = InfluxDBClient(url=host, token=token, org=organization)
 
 # Instantiate the write and query apis
 write_api = client.write_api(write_options=SYNCHRONOUS)
