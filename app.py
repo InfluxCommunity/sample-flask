@@ -176,9 +176,14 @@ def alerts():
 
 @app.route("/monitor")
 def monitor():
-    # This function returns information about your app is running in the InfluxDB backend
+    # This function returns information about how healthy your app is in the InfluxDB backend
     # check for failed tasks
-    # get most recent write from bucket
+    # bytes written and read in the last hour from bucket_name
+    pass
+
+def register_invokable_script():
+    # This function will store your query in influxdb, and return an id
+    # You can then invoke the script and pass parameters
     pass
 
 def bucket_check():
