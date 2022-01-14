@@ -2,6 +2,7 @@
 
 # use pip install flask or pip3 install flask
 from flask import Flask, request
+import plotly.express as px
 from datetime import datetime
 import json
 import os
@@ -22,7 +23,7 @@ app = Flask(__name__)
     # A token
     # A bucket name
 
-# Your organization name. An organiztion is how InfluxDB groups resourcecs such as tasks, buckets, etc...
+# Your organization name. An organiztion is how InfluxDB groups resources such as tasks, buckets, etc...
 organization = "rick+plantbuddy@influxdata.com"
 
 # The host URL for where your instance of InfluxDB runs. This is also the URL where you reach the UI for your account.
@@ -48,7 +49,6 @@ query_api = client.query_api()
 @app.route("/")
 def index():
     return """<p>Welcome to your first InfluxDB Application</p>
-    <p>This is a simple sample application to demonstrate the basics of writing a time series application using InfluxDB as a backend.
     """
 
 @app.route("/ingest", methods=["POST"])
@@ -116,8 +116,7 @@ def query():
     query = f"from(bucket: \"{bucket_name}\") |> range(start: -1h) |> filter(fn: (r) => r.user_id == \"{user_id}\")"
 
     # Execute the query with the query api, and a stream of tables will be returned
-   
-    # The query() method will throw an ApiException that can be handled in code.
+    # If it encounters problems, the query() method will throw an ApiException.
     # In this case, we are simply going to return all errors to the user but not handling exceptions
     tables = query_api.query(query, org=organization)
 
@@ -130,10 +129,30 @@ def query():
     output = json.dumps(tables, cls=FluxStructureEncoder, indent=2)
     return output, 200
 
-@app.route("/visualize")
+@app.route("/visualize", methods=["GET"])
 def visualize():
-    # create a graph and return it in html
-    pass
+    # This function returns a visualization (graph) instead of just data
+    
+    # Your real code should authorize the user, and ensure that the user_id matches the authorization.
+    # Send the user name as an argument from the web browser:
+    # 127.0.0.1:5001/visualize?user_name=user1
+    user_id = request.args.get("user_name")
+
+    # uncomment the following line and comment out the above line if you prefer to try this without posting the data
+    user_id = "user1"
+
+    # Query using Flux as in the /query end point
+    query = f"from(bucket: \"{bucket_name}\") |> range(start: -1h) |> filter(fn: (r) => r.user_id == \"{user_id}\")"
+
+    # This example users plotly and pandas to create the visualization
+    # You can learn more about using InfluxDB with Pandas by following this link:
+    # 
+    # InfluxDB supports any visualization library you choose, you can learn more about visualizing data following this link:
+    # 
+    data_frame = query_api.query_data_frame(query, organization)
+    graph = px.line(data_frame, x="_time", y="_value", title="my graph")
+    
+    return graph.to_html(), 200
 
 @app.route("/alerts", methods=["POST, GET, DELETE, PUT"])
 def alerts():
@@ -180,4 +199,4 @@ def bucket_check():
 
 if __name__ == '__main__':
     bucket_check()
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True) # using port 5001, because MacOS has started listening to 5000
