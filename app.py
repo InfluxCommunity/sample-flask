@@ -11,6 +11,8 @@ import os
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 from influxdb_client.client.flux_table import FluxStructureEncoder
+from influxdb_client.client.exceptions import InfluxDBError
+from influxdb_client.rest import ApiException
 
 app = Flask(__name__)
 
@@ -34,7 +36,7 @@ token = os.environ["INFLUXDB_TOKEN"]
 
 # A bucket name is required for the write_api. A bucket is where you store data, and you can 
 # group related data into a bucket. You can also scope permissions to the bucket level as well.
-bucket="default"
+bucket_name="xxx"
 
 # Instantiate the client library
 client = InfluxDBClient(url="https://eastus-1.azure.cloud2.influxdata.com", token=token, org=organization)
@@ -83,11 +85,14 @@ def ingest():
     #     .time(datetime.utcnow(), WritePrecision.NS)
 
     try:
-        write_api.write(bucket, organization, point)
+        write_api.write(bucket_name, organization, point)
         return {"result":"data accepted for processing"}, 200
-    except Exception as e:
-        return {"result":e}, 500
-    
+    except InfluxDBError as e:
+        if e.response.status == "401":
+            return {"error":"Insufficent permissions"}, e.response.status
+        if e.response.status == "404":
+            return {"error":f"Bucket {bucket_name} does not exist"}, e.response.status
+
     # To view the data that you are writing in the UI, you can use the data explorer
     # Follow this link: {need to wait for /me/ to ship for this to work}
 
@@ -99,7 +104,7 @@ def query():
 
     # Your real code should authorize the user, and ensure that the user_id matches the authorization.
     user_id = request.json["user_id"]
-    # uncomment the following if you prefer to try this without posting the data
+    # uncomment the following line and comment out the above line if you prefer to try this without posting the data
     # user_id = "user1"
 
     # Queries are written in the javsacript-like Flux language
@@ -108,10 +113,12 @@ def query():
     # Follow this link to learn more about using Flux:
     # https://awesome.influxdata.com/docs/part-2/introduction-to-flux/
 
-    query = f"from(bucket: \"default\") |> range(start: -1h) |> filter(fn: (r) => r.user_id == \"{user_id}\")"
+    query = f"from(bucket: \"{bucket_name}\") |> range(start: -1h) |> filter(fn: (r) => r.user_id == \"{user_id}\")"
 
-
-    print(query)
+    # Execute the query with the query api, and a stream of tables will be returned
+   
+    # The query() method will throw an ApiException that can be handled in code.
+    # In this case, we are simply going to return all errors to the user but not handling exceptions
     tables = query_api.query(query, org=organization)
 
     # the data will be returned as Python objects so you can iterate the data and do what you want
@@ -128,10 +135,25 @@ def visualize():
     # create a graph and return it in html
     pass
 
-@app.route("/alerts", methods=["POST, GET, DELETE"])
+@app.route("/alerts", methods=["POST, GET, DELETE, PUT"])
 def alerts():
-    # create, list, and delete alerts depending on method
-    pass
+    # This function uses InfluxDB's task system to provide a very simple alerting feature.
+    # InfluxDB has a built in Checks and Notifications sytstem that is highly configurable.
+    # For information about creating Checks and Notifications in the InfluxDB UI and other information,
+    # follow this link:
+    # For details about 
+    if request.method == "POST":
+        # create a new task
+        pass
+    if request.method == "GET":
+        # return list of alerts for user
+        pass
+    if request.method == "DELETE":
+        # delete the task
+        pass
+    if request.method == "PUT":
+        #update the task
+        pass
 
 def bucket_check():
     # this function checks if the desired bucket exits, and creates it if needed
@@ -143,12 +165,18 @@ def bucket_check():
     # https://docs.influxdata.com/influxdb/v2.1/organizations/buckets/
     
     try:
-        b = client.buckets_api().find_bucket_by_name(bucket)
-        print(f"bucket ({bucket}) found with retention policy: {b.rp}")
-    except:
-        print(f"bucket {bucket} not found, creating it")
-        client.buckets_api().create_bucket(bucket_name=bucket)
-
+        # use the buckets api to find a bucket by its name
+        b = client.buckets_api().find_bucket_by_name(bucket_name)
+        print(f"bucket ({bucket_name}) found with retention policy: {b.rp}")
+    except ApiException as e:
+        # The most likely problem is that the bucket does not exist, in which case add it
+        # Check the status code for other possible errors that you wish to handle
+        if e.status == 404:
+            print(f"bucket {bucket_name} not found, creating it")
+            client.buckets_api().create_bucket(bucket_name=bucket_name)
+        if e.status == 401:
+            print(f"Insufficent permsissions, exiting")
+            exit()
 
 if __name__ == '__main__':
     bucket_check()
