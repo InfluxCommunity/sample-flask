@@ -113,12 +113,14 @@ def query():
     # Follow this link to learn more about using Flux:
     # https://awesome.influxdata.com/docs/part-2/introduction-to-flux/
 
-    query = f"from(bucket: \"{bucket_name}\") |> range(start: -1h) |> filter(fn: (r) => r.user_id == \"{user_id}\")"
+    # Set up the arguments for the query parameters
+    params = {"bucket_name":bucket_name, "user_id":user_id}
+    query = "from(bucket: bucket_name) |> range(start: -1h) |> filter(fn: (r) => r.user_id == user_id)"
 
     # Execute the query with the query api, and a stream of tables will be returned
     # If it encounters problems, the query() method will throw an ApiException.
     # In this case, we are simply going to return all errors to the user but not handling exceptions
-    tables = query_api.query(query, org=organization)
+    tables = query_api.query(query, org=organization, params=params)
 
     # the data will be returned as Python objects so you can iterate the data and do what you want
     for table in tables: 
@@ -142,14 +144,15 @@ def visualize():
     user_id = "user1"
 
     # Query using Flux as in the /query end point
-    query = f"from(bucket: \"{bucket_name}\") |> range(start: -1h) |> filter(fn: (r) => r.user_id == \"{user_id}\")"
+    params = {"bucket_name":bucket_name, "user_id":user_id}
+    query = "from(bucket: bucket_name) |> range(start: -1h) |> filter(fn: (r) => r.user_id == user_id)"
 
     # This example users plotly and pandas to create the visualization
     # You can learn more about using InfluxDB with Pandas by following this link:
     # 
     # InfluxDB supports any visualization library you choose, you can learn more about visualizing data following this link:
     # 
-    data_frame = query_api.query_data_frame(query, organization)
+    data_frame = query_api.query_data_frame(query, organization, params=params)
     graph = px.line(data_frame, x="_time", y="_value", title="my graph")
     
     return graph.to_html(), 200
@@ -161,6 +164,10 @@ def alerts():
     # For information about creating Checks and Notifications in the InfluxDB UI and other information,
     # follow this link:
     # For details about 
+
+    # Your code should never poll InfluxDB for status, and your code should never periodically run
+    # queries. You should let InfluxDB's task system schedule and run those for you, and you can
+    # add callbacks and notification endpoints to Flux.
     if request.method == "POST":
         # create a new task
         pass
