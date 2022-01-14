@@ -76,7 +76,7 @@ def ingest():
         .tag("user_id", user_id) \
         .time(datetime.utcnow(), WritePrecision.NS)
 
-    # If you don't want to post the data, you can uncomment the following    
+    # If you don't want to post the data, you can uncomment the following, and delete the above code    
     # point = Point("measurement1") \
     #     .field("field1", 1.0) \
     #     .tag("user_id", "user1")\
@@ -133,10 +133,23 @@ def alerts():
     # create, list, and delete alerts depending on method
     pass
 
-def startup_checks():
-    # check if the bucket is there, and if not, create it
-    pass
+def bucket_check():
+    # this function checks if the desired bucket exits, and creates it if needed
+
+    # A bucket is where you store data for your organization. A bucket has a retention
+    # policy, which determines how long the bucket will retain data. Data older than the retention
+    # policu will automatically be deleted and cleaned up by InfluxDB.
+    # You can read more about buckets and retention policy by following this link:
+    # https://docs.influxdata.com/influxdb/v2.1/organizations/buckets/
+    
+    try:
+        b = client.buckets_api().find_bucket_by_name(bucket)
+        print(f"bucket ({bucket}) found with retention policy: {b.rp}")
+    except:
+        print(f"bucket {bucket} not found, creating it")
+        client.buckets_api().create_bucket(bucket_name=bucket)
+
 
 if __name__ == '__main__':
-    startup_checks()
+    bucket_check()
     app.run(host='0.0.0.0', port=5001, debug=True)
