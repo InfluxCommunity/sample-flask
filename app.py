@@ -174,6 +174,13 @@ def alerts():
         #update the task
         pass
 
+@app.route("/monitor")
+def monitor():
+    # This function returns information about your app is running in the InfluxDB backend
+    # check for failed tasks
+    # get most recent write from bucket
+    pass
+
 def bucket_check():
     # this function checks if the desired bucket exits, and creates it if needed
 
