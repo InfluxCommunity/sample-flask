@@ -185,9 +185,20 @@ def alerts():
 
 @app.route("/monitor")
 def monitor():
-    # This function returns information about how healthy your app is in the InfluxDB backend
-    # check for failed tasks
-    # bytes written and read in the last hour from bucket_name
+    # This page returns information about influxdb operations
+
+    # InfluxDB includes functionality designed to help you programatically manage your instances.
+    # This page provides basic insights into usage, and tasks. Much more related functionality exists.
+    # There is a template that you can install into your account, to learn more, follow this link:
+    # https://www.influxdata.com/blog/tldr-influxdb-tech-tips-using-and-understanding-the-influxdb-cloud-usage-template/
+
+    # Your own code should verify that the person viewing this has proper authorization
+
+    # The following flux query will retrieve the 3 kinds of usage data available 
+    # and combine the data into a single table for ease of formatting. 
+    # For more information about the usage.from() function, see the following:
+    # https://docs.influxdata.com/flux/v0.x/stdlib/experimental/usage/from/
+
     query = """
 import "experimental/usage"
 
@@ -197,13 +208,43 @@ usage.from(start: -1h, stop: now())
 |> sum()
     """
     tables = query_api.query(query, org=organization)
-    html = "<H1>usage</H1><TABLE>"
+    html = "<H1>usage</H1><TABLE><TR><TH>usage type</TH><TH>value</TH></TR>"
     for table in tables:
         for record in table:
             mes = record["_measurement"]
             val = record["_value"]
             html += f"<TR><TD>{mes}</TD><TD>{val}</TD></TR>"
     html += "</TABLE>"
+
+    # This part of the function looks at task health. 
+    # Tasks allow you to run code periodically within InfluxDB. For an overview of tasks, see the following:
+    # https://docs.influxdata.com/influxdb/cloud/process-data/get-started/
+    
+    # It is very useful to know if your tasks are running and succeeding or not, and to alert on those conditions.
+    # This section uses the tasks_api that comes with the client library
+    # Documentation on this library is available here:
+    # https://influxdb-client.readthedocs.io/en/stable/api.html#tasksapi
+    tasks_api = client.tasks_api()
+
+    # list all the tasks
+    tasks = tasks_api.find_tasks()
+
+    html += "<H1>tasks</H1><TABLE><TR><TH>name</TH><TH>status</TH><TH>last run</TH><TH>last run status</TH></TR>"
+    
+    # for active tasks, format the status report
+    for task in tasks:
+        started_at = ""
+        run_status = ""
+        if task.status == "active":
+            run = tasks_api.get_runs(task.id, limit=1)[0]
+            started_at = run.started_at
+            run_status = run.status
+        html += f"<TR><TD>{task.name}</TD><TD>{task.status}</TD><TD>{started_at}</TD><TD>{run_status}</TD></TR></BR>"
+
+    if len(tasks) == 0:
+        html += "<TR><TD>no tasks</TD><TR>"
+    html += "</TABLE>"
+
     return html, 200
 
 def register_invokable_script():
