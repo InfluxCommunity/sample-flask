@@ -6,6 +6,8 @@ import plotly.express as px
 from datetime import datetime
 import json
 import os
+import requests
+from urllib.parse import urljoin
 
 # Import the classes to be used from the InfluxDB client library.
 # Use $pip install influxdb-client or $pip3 install influxdb-client
@@ -18,7 +20,7 @@ from influxdb_client.rest import ApiException
 app = Flask(__name__)
 
 # Your app needs the following information:
-    # An organization id (org_id)
+    # An organization name
     # A host URL
     # A token
     # A bucket name
@@ -186,11 +188,27 @@ def monitor():
     # This function returns information about how healthy your app is in the InfluxDB backend
     # check for failed tasks
     # bytes written and read in the last hour from bucket_name
-    pass
+    query = """
+import "experimental/usage"
+
+usage.from(start: -1h, stop: now())
+|> toFloat()
+|> group(columns: ["_measurement"])
+|> sum()
+    """
+    tables = query_api.query(query, org=organization)
+    html = "<H1>usage</H1><TABLE>"
+    for table in tables:
+        for record in table:
+            mes = record["_measurement"]
+            val = record["_value"]
+            html += f"<TR><TD>{mes}</TD><TD>{val}</TD></TR>"
+    html += "</TABLE>"
+    return html, 200
 
 def register_invokable_script():
     # This function will store your query in influxdb, and return an id
-    # You can then invoke the script and pass parameters
+    # You can then invoke the script and pass arguments for the parameters
     pass
 
 def bucket_check():
