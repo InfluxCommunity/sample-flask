@@ -26,7 +26,7 @@ app = Flask(__name__)
     # A bucket name
 
 # Your organization name. An organiztion is how InfluxDB groups resources such as tasks, buckets, etc...
-organization = os.environ["INFLUXDB_ORGANIZATION"]
+organization_name = os.environ["INFLUXDB_ORGANIZATION"]
 
 # The host URL for where your instance of InfluxDB runs. This is also the URL where you reach the UI for your account.
 host = os.environ["INFLUXDB_HOST"] 
@@ -39,10 +39,10 @@ token = os.environ["INFLUXDB_TOKEN"]
 
 # A bucket name is required for the write_api. A bucket is where you store data, and you can 
 # group related data into a bucket. You can also scope permissions to the bucket level as well.
-bucket_name = os.environ["INFLUXDB_BUCKET"]
+bucket_name = "raw_data_bucket"
 
 # Instantiate the client library
-client = InfluxDBClient(url=host, token=token, org=organization)
+client = InfluxDBClient(url=host, token=token, org=organization_name)
 
 # Instantiate the write and query apis
 write_api = client.write_api(write_options=SYNCHRONOUS)
@@ -87,7 +87,7 @@ def ingest():
     #     .time(datetime.utcnow(), WritePrecision.NS)
 
     try:
-        write_api.write(bucket_name, organization, point)
+        write_api.write(bucket_name, organization_name, point)
         return {"result":"data accepted for processing"}, 200
     except InfluxDBError as e:
         if e.response.status == "401":
@@ -122,7 +122,7 @@ def query():
     # Execute the query with the query api, and a stream of tables will be returned
     # If it encounters problems, the query() method will throw an ApiException.
     # In this case, we are simply going to return all errors to the user but not handling exceptions
-    tables = query_api.query(query, org=organization, params=params)
+    tables = query_api.query(query, org=organization_name, params=params)
 
     # the data will be returned as Python objects so you can iterate the data and do what you want
     for table in tables: 
@@ -154,7 +154,7 @@ def visualize():
     # 
     # InfluxDB supports any visualization library you choose, you can learn more about visualizing data following this link:
     # 
-    data_frame = query_api.query_data_frame(query, organization, params=params)
+    data_frame = query_api.query_data_frame(query, organization_name, params=params)
     graph = px.line(data_frame, x="_time", y="_value", title="my graph")
     
     return graph.to_html(), 200
@@ -185,7 +185,7 @@ def alerts():
 
 @app.route("/monitor")
 def monitor():
-    # This page returns information about influxdb operations
+    # This page returns information related to how your application is behaving in InfluxDB
 
     # InfluxDB includes functionality designed to help you programatically manage your instances.
     # This page provides basic insights into usage, and tasks. Much more related functionality exists.
@@ -207,7 +207,7 @@ usage.from(start: -1h, stop: now())
 |> group(columns: ["_measurement"])
 |> sum()
     """
-    tables = query_api.query(query, org=organization)
+    tables = query_api.query(query, org=organization_name)
     html = "<H1>usage</H1><TABLE><TR><TH>usage type</TH><TH>value</TH></TR>"
     for table in tables:
         for record in table:
@@ -219,7 +219,7 @@ usage.from(start: -1h, stop: now())
     # This part of the function looks at task health. 
     # Tasks allow you to run code periodically within InfluxDB. For an overview of tasks, see the following:
     # https://docs.influxdata.com/influxdb/cloud/process-data/get-started/
-    
+
     # It is very useful to know if your tasks are running and succeeding or not, and to alert on those conditions.
     # This section uses the tasks_api that comes with the client library
     # Documentation on this library is available here:
@@ -231,7 +231,9 @@ usage.from(start: -1h, stop: now())
 
     html += "<H1>tasks</H1><TABLE><TR><TH>name</TH><TH>status</TH><TH>last run</TH><TH>last run status</TH></TR>"
     
-    # for active tasks, format the status report
+    # Each task has a run log, accessed through the get_runs() function
+    # This code checks if each task is enabled, and if so, checks the status of its last run
+    # For active tasks, format the status report
     for task in tasks:
         started_at = ""
         run_status = ""
@@ -259,7 +261,7 @@ def bucket_check():
     # policy, which determines how long the bucket will retain data. Data older than the retention
     # policu will automatically be deleted and cleaned up by InfluxDB.
     # You can read more about buckets and retention policy by following this link:
-    # https://docs.influxdata.com/influxdb/v2.1/organizations/buckets/
+    # https://docs.influxdata.com/influxdb/cloud/organizations/buckets/
     
     try:
         # use the buckets api to find a bucket by its name
