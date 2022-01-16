@@ -143,7 +143,7 @@ def visualize():
     user_id = request.args.get("user_name")
 
     # uncomment the following line and comment out the above line if you prefer to try this without posting the data
-    user_id = "user1"
+    #user_id = "user1"
 
     # Query using Flux as in the /query end point
     params = {"bucket_name":bucket_name, "user_id":user_id}
@@ -159,17 +159,35 @@ def visualize():
     
     return graph.to_html(), 200
 
-@app.route("/alerts", methods=["POST, GET, DELETE, PUT"])
-def alerts():
-    # This function uses InfluxDB's task system to provide a very simple alerting feature.
-    # InfluxDB has a built in Checks and Notifications sytstem that is highly configurable.
-    # For information about creating Checks and Notifications in the InfluxDB UI and other information,
-    # follow this link:
-    # For details about 
+@app.route("/tasks", methods=["POST, GET, DELETE, PUT"])
+def tasks():
+    # Send the following data to this function to test
+    # {"user_id":"user1", "range":"10m"}
+    
+    # ensure there is a bucket to copy the data into
+    find_or_create_bucket("processed_data_bucket")
 
-    # Your code should never poll InfluxDB for status, and your code should never periodically run
-    # queries. You should let InfluxDB's task system schedule and run those for you, and you can
-    # add callbacks and notification endpoints to Flux.
+    # The follow flux will find any values in the specified time range that have a 
+    # value of 0.0 and will copy those points into a special bucket. This demonstrates 2 concepts:
+    # 1. "downsampling", or the ability to easily precompute data so that you can supply low latency
+    # queries for your UI. For more on downsampling, see:
+    # https://awesome.influxdata.com/docs/part-2/querying-and-data-transformations/#materialized-views-or-downsampling-tasks
+    # 2. "alerting", or the ability to send a notification based on certain values and conditions.
+    # For example, rather than writing the data to a new bucket, you can use http.post() to call back your application
+    # or a different service. An example of such an integration is commented out below. 
+    # This example does not come close to showing the full power of the alerting system, follow this link:
+    # https://awesome.influxdata.com/docs/part-3/checks-and-notifications/
+    query = """
+ from(bucket: {bucket_name})
+ |> range(start: {})  
+ |> filter(fn: (r) => r.user_id = {}
+ |> filter(fn: (r) =. r._value == 0.0
+ |> to(bucket: "processed_data_bucket)
+ // uncomment below of the simplest possible alert
+ // |> last()
+ // |> http.post(url: "", headers: {}, data: bytes: r.user_id)
+    """
+
     if request.method == "POST":
         # create a new task
         pass
@@ -254,7 +272,7 @@ def register_invokable_script():
     # You can then invoke the script and pass arguments for the parameters
     pass
 
-def bucket_check():
+def find_or_create_bucket(bucket_to_find_or_create):
     # this function checks if the desired bucket exits, and creates it if needed
 
     # A bucket is where you store data for your organization. A bucket has a retention
@@ -265,18 +283,19 @@ def bucket_check():
     
     try:
         # use the buckets api to find a bucket by its name
-        b = client.buckets_api().find_bucket_by_name(bucket_name)
-        print(f"bucket ({bucket_name}) found with retention policy: {b.rp}")
+        bucket = client.buckets_api().find_bucket_by_name(bucket_to_find_or_create)
+        print(f"bucket ({bucket_to_find_or_create}) found with retention policy: {bucket.rp}")
+        
     except ApiException as e:
         # The most likely problem is that the bucket does not exist, in which case add it
         # Check the status code for other possible errors that you wish to handle
         if e.status == 404:
-            print(f"bucket {bucket_name} not found, creating it")
-            client.buckets_api().create_bucket(bucket_name=bucket_name)
+            print(f"bucket {bucket_to_find_or_create} not found, creating it")
+            client.buckets_api().create_bucket(bucket_name=bucket_to_find_or_create)
         if e.status == 401:
             print(f"Insufficent permsissions, exiting")
             exit()
 
 if __name__ == '__main__':
-    bucket_check()
+    find_or_create_bucket(bucket_name)
     app.run(host='0.0.0.0', port=5001, debug=True) # using port 5001, because MacOS has started listening to 5000
