@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 # use pip install flask or pip3 install flask
+from asyncio import create_task
 from flask import Flask, request
 import plotly.express as px
 from datetime import datetime
@@ -159,10 +160,12 @@ def visualize():
     
     return graph.to_html(), 200
 
-@app.route("/tasks", methods=["POST, GET, DELETE, PUT"])
+@app.route("/tasks", methods=["POST"])
 def tasks():
     # Send the following data to this function to test
-    # {"user_id":"user1", "range":"10m"}
+    # {"user_id":"user1"}
+    # or uncomment the following line if you choose not to post it:
+    # user_id = "user1"
     
     # ensure there is a bucket to copy the data into
     find_or_create_bucket("processed_data_bucket")
@@ -174,32 +177,45 @@ def tasks():
     # https://awesome.influxdata.com/docs/part-2/querying-and-data-transformations/#materialized-views-or-downsampling-tasks
     # 2. "alerting", or the ability to send a notification based on certain values and conditions.
     # For example, rather than writing the data to a new bucket, you can use http.post() to call back your application
-    # or a different service. An example of such an integration is commented out below. 
-    # This example does not come close to showing the full power of the alerting system, follow this link:
+    # or a different service. 
+    # Tho see the full power of the alerting system, follow this link:
     # https://awesome.influxdata.com/docs/part-3/checks-and-notifications/
     query = """
- from(bucket: {bucket_name})
- |> range(start: {})  
- |> filter(fn: (r) => r.user_id = {}
- |> filter(fn: (r) =. r._value == 0.0
- |> to(bucket: "processed_data_bucket)
- // uncomment below of the simplest possible alert
- // |> last()
- // |> http.post(url: "", headers: {}, data: bytes: r.user_id)
+option task = {{name: "{}_task", every: 1m}}
+
+ from(bucket: "{}")
+ |> range(start: -1m)  
+ |> filter(fn: (r) => r.user_id == "{}")
+ |> filter(fn: (r) => r._value == 0.0)
+ |> to(bucket: "processed_data_bucket")
     """
 
     if request.method == "POST":
-        # create a new task
-        pass
-    if request.method == "GET":
-        # return list of alerts for user
-        pass
-    if request.method == "DELETE":
-        # delete the task
-        pass
-    if request.method == "PUT":
-        #update the task
-        pass
+        # Your real code should authorize the user, and ensure that the user_id matches the authorization.
+        user_id = request.json["user_id"]
+        # uncomment the following line and comment out the above line if you prefer to try this without posting the data
+        # user_id = "user1"
+
+        # update the query specific to the user id
+        q = query.format(user_id, bucket_name, user_id)
+
+        # Prepare the REST API call
+        # In some cases, the REST API is simpler to use than the client API
+        # Refer to the REST API docs to see how to manage tasks:
+        # https://docs.influxdata.com/influxdb/cloud/api/#operation/PostTasks
+        data = {"flux":q, "org":organization_name}
+        url = urljoin(host, "/api/v2/tasks")
+
+        headers = {"Authorization": f"Token {token}", "Content-Type":"application/json"}
+        response = requests.post(url, headers=headers, data=json.dumps(data))
+        if response.status_code == 201:
+            r = json.loads(response.text)
+
+            # This will return the task id, which your application should store so that it can refer to it later
+            # for managing tasks
+            return {"task_id":r["id"]}, 201
+        else:
+            return response.text, response.status_code
 
 @app.route("/monitor")
 def monitor():
@@ -256,9 +272,11 @@ usage.from(start: -1h, stop: now())
         started_at = ""
         run_status = ""
         if task.status == "active":
-            run = tasks_api.get_runs(task.id, limit=1)[0]
-            started_at = run.started_at
-            run_status = run.status
+            runs = tasks_api.get_runs(task.id, limit=1)
+            if len(runs) > 0: # new tasks my not have any runs yet
+                run = runs[0]
+                started_at = run.started_at
+                run_status = run.status
         html += f"<TR><TD>{task.name}</TD><TD>{task.status}</TD><TD>{started_at}</TD><TD>{run_status}</TD></TR></BR>"
 
     if len(tasks) == 0:
