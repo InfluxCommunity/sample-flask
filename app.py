@@ -21,25 +21,30 @@ from influxdb_client.rest import ApiException
 app = Flask(__name__)
 
 # Your app needs the following information:
-# An organization name
-# A host URL
-# A token
-# A bucket name
+# - An organization name
+# - A host URL
+# - A token
+# - A bucket name
 
-# Your organization name. An organiztion is how InfluxDB groups resources such as tasks, buckets, etc...
+# Your organization name.
+# An organiztion is how InfluxDB groups resources such as tasks, buckets, etc...
 organization_name = os.environ["INFLUXDB_ORGANIZATION"]
 
-# The host URL for where your instance of InfluxDB runs. This is also the URL where you reach the UI for your account.
+# The host URL for where your instance of InfluxDB runs.
+# This is also the URL where you reach the UI for your account.
 host = os.environ["INFLUXDB_HOST"]
 
-# An appropriately scoped token or set of tokens. For ease of use in this example, we will use an all access token.
+# An appropriately scoped token or set of tokens.
+# For ease of use in this example, we will use an all access token.
 # Note that you should not store the token in source code in a real application, but rather use a proper secrets store.
 # More information about permissions and tokens can be found here:
 # https://docs.influxdata.com/influxdb/v2.1/security/tokens/
 token = os.environ["INFLUXDB_TOKEN"]
 
-# A bucket name is required for the write_api. A bucket is where you store data, and you can
-# group related data into a bucket. You can also scope permissions to the bucket level as well.
+# A bucket name is required for the write_api.
+# A bucket is where you store data, and you can
+# group related data into a bucket.
+# You can also scope permissions to the bucket level as well.
 bucket_name = "raw_data_bucket"
 
 # Instantiate the client library
@@ -178,15 +183,17 @@ def tasks():
     find_or_create_bucket("processed_data_bucket")
 
     # The follow flux will find any values in the specified time range that have a
-    # value of 0.0 and will copy those points into a special bucket. This demonstrates 2 concepts:
+    # value of 0.0 and will copy those points into a special bucket.
+    # This demonstrates 2 concepts:
     # 1. "downsampling", or the ability to easily precompute data so that you can supply low latency
-    # queries for your UI. For more on downsampling, see:
-    # https://awesome.influxdata.com/docs/part-2/querying-and-data-transformations/#materialized-views-or-downsampling-tasks
+    #    queries for your UI.
+    #    For more on downsampling, see:
+    #    https://awesome.influxdata.com/docs/part-2/querying-and-data-transformations/#materialized-views-or-downsampling-tasks
     # 2. "alerting", or the ability to send a notification based on certain values and conditions.
-    # For example, rather than writing the data to a new bucket, you can use http.post() to call back your application
-    # or a different service.
-    # Tho see the full power of the alerting system, follow this link:
-    # https://awesome.influxdata.com/docs/part-3/checks-and-notifications/
+    #    For example, rather than writing the data to a new bucket, you can use http.post() to call back your application
+    #    or a different service.
+    #    To see the full power of the alerting system, see:
+    #    https://awesome.influxdata.com/docs/part-3/checks-and-notifications/
     query = """
 option task = {{name: "{}_task", every: 1m}}
 
@@ -200,13 +207,14 @@ option task = {{name: "{}_task", every: 1m}}
     if request.method == "POST":
         # Your real code should authorize the user, and ensure that the user_id matches the authorization.
         user_id = request.json["user_id"]
-        # uncomment the following line and comment out the above line if you prefer to try this without posting the data
+        # If you prefer to try this without posting the data,
+        # uncomment the following line and comment out the above line
         # user_id = "user1"
 
-        # update the query specific to the user id
+        # Update the query specific to the user id
         q = query.format(user_id, bucket_name, user_id)
 
-        # Prepare the REST API call
+        # Prepare the REST API call.
         # In some cases, the REST API is simpler to use than the client API
         # Refer to the REST API docs to see how to manage tasks:
         # https://docs.influxdata.com/influxdb/cloud/api/#operation/PostTasks
@@ -230,14 +238,14 @@ option task = {{name: "{}_task", every: 1m}}
 
 @app.route("/monitor")
 def monitor():
-    # This page returns information related to how your application is behaving in InfluxDB
+    # This page returns information related to how your application is behaving in InfluxDB.
 
     # InfluxDB includes functionality designed to help you programatically manage your instances.
     # This page provides basic insights into usage, and tasks. Much more related functionality exists.
     # There is a template that you can install into your account, to learn more, follow this link:
     # https://www.influxdata.com/blog/tldr-influxdb-tech-tips-using-and-understanding-the-influxdb-cloud-usage-template/
 
-    # Your own code should verify that the person viewing this has proper authorization
+    # Your code should verify that the person viewing this has proper authorization.
 
     # The following flux query will retrieve the 3 kinds of usage data available
     # and combine the data into a single table for ease of formatting.
@@ -262,7 +270,8 @@ usage.from(start: -1h, stop: now())
     html += "</TABLE>"
 
     # This part of the function looks at task health.
-    # Tasks allow you to run code periodically within InfluxDB. For an overview of tasks, see the following:
+    # Tasks allow you to run code periodically within InfluxDB.
+    # For an overview of tasks, see
     # https://docs.influxdata.com/influxdb/cloud/process-data/get-started/
 
     # It is very useful to know if your tasks are running and succeeding or not, and to alert on those conditions.
@@ -308,7 +317,7 @@ def find_or_create_bucket(bucket_to_find_or_create):
 
     # A bucket is where you store data for your organization. A bucket has a retention
     # policy, which determines how long the bucket will retain data. Data older than the retention
-    # policu will automatically be deleted and cleaned up by InfluxDB.
+    # policy will automatically be deleted and cleaned up by InfluxDB.
     # You can read more about buckets and retention policy by following this link:
     # https://docs.influxdata.com/influxdb/cloud/organizations/buckets/
 
@@ -332,6 +341,4 @@ def find_or_create_bucket(bucket_to_find_or_create):
 
 if __name__ == "__main__":
     find_or_create_bucket(bucket_name)
-    app.run(
-        host="0.0.0.0", port=5001, debug=True
-    )  # using port 5001, because MacOS has started listening to 5000
+    app.run(host="0.0.0.0", port=5001, debug=True)
