@@ -21,10 +21,10 @@ from influxdb_client.rest import ApiException
 app = Flask(__name__)
 
 # Your app needs the following information:
-    # An organization name
-    # A host URL
-    # A token
-    # A bucket name
+# An organization name
+# A host URL
+# A token
+# A bucket name
 
 # Your organization name. An organiztion is how InfluxDB groups resources such as tasks, buckets, etc...
 organization_name = os.environ["INFLUXDB_ORGANIZATION"]
@@ -49,10 +49,12 @@ client = InfluxDBClient(url=host, token=token, org=organization_name)
 write_api = client.write_api(write_options=SYNCHRONOUS)
 query_api = client.query_api()
 
+
 @app.route("/")
 def index():
     return """<p>Welcome to your first InfluxDB Application</p>
     """
+
 
 @app.route("/ingest", methods=["POST"])
 def ingest():
@@ -76,10 +78,12 @@ def ingest():
     measurement = request.json["measurement"]
     value = request.json["field1"]
 
-    point = Point(measurement) \
-        .field("field1", value) \
-        .tag("user_id", user_id) \
+    point = (
+        Point(measurement)
+        .field("field1", value)
+        .tag("user_id", user_id)
         .time(datetime.utcnow(), WritePrecision.NS)
+    )
 
     # If you don't want to post the data, you can uncomment the following, and delete the above code
     # point = Point("measurement1") \
@@ -89,15 +93,16 @@ def ingest():
 
     try:
         write_api.write(bucket_name, organization_name, point)
-        return {"result":"data accepted for processing"}, 200
+        return {"result": "data accepted for processing"}, 200
     except InfluxDBError as e:
         if e.response.status == "401":
-            return {"error":"Insufficent permissions"}, e.response.status
+            return {"error": "Insufficent permissions"}, e.response.status
         if e.response.status == "404":
-            return {"error":f"Bucket {bucket_name} does not exist"}, e.response.status
+            return {"error": f"Bucket {bucket_name} does not exist"}, e.response.status
 
     # To view the data that you are writing in the UI, you can use the data explorer
     # Follow this link: {need to wait for /me/ to ship for this to work}
+
 
 @app.route("/query", methods=["POST"])
 def query():
@@ -117,7 +122,7 @@ def query():
     # https://awesome.influxdata.com/docs/part-2/introduction-to-flux/
 
     # Set up the arguments for the query parameters
-    params = {"bucket_name":bucket_name, "user_id":user_id}
+    params = {"bucket_name": bucket_name, "user_id": user_id}
     query = "from(bucket: bucket_name) |> range(start: -1h) |> filter(fn: (r) => r.user_id == user_id)"
 
     # Execute the query with the query api, and a stream of tables will be returned
@@ -134,6 +139,7 @@ def query():
     output = json.dumps(tables, cls=FluxStructureEncoder, indent=2)
     return output, 200
 
+
 @app.route("/visualize", methods=["GET"])
 def visualize():
     # This function returns a visualization (graph) instead of just data
@@ -144,10 +150,10 @@ def visualize():
     user_id = request.args.get("user_name")
 
     # uncomment the following line and comment out the above line if you prefer to try this without posting the data
-    #user_id = "user1"
+    # user_id = "user1"
 
     # Query using Flux as in the /query end point
-    params = {"bucket_name":bucket_name, "user_id":user_id}
+    params = {"bucket_name": bucket_name, "user_id": user_id}
     query = "from(bucket: bucket_name) |> range(start: -1h) |> filter(fn: (r) => r.user_id == user_id)"
 
     # This example users plotly and pandas to create the visualization
@@ -159,6 +165,7 @@ def visualize():
     graph = px.line(data_frame, x="_time", y="_value", title="my graph")
 
     return graph.to_html(), 200
+
 
 @app.route("/tasks", methods=["POST"])
 def tasks():
@@ -203,19 +210,23 @@ option task = {{name: "{}_task", every: 1m}}
         # In some cases, the REST API is simpler to use than the client API
         # Refer to the REST API docs to see how to manage tasks:
         # https://docs.influxdata.com/influxdb/cloud/api/#operation/PostTasks
-        data = {"flux":q, "org":organization_name}
+        data = {"flux": q, "org": organization_name}
         url = urljoin(host, "/api/v2/tasks")
 
-        headers = {"Authorization": f"Token {token}", "Content-Type":"application/json"}
+        headers = {
+            "Authorization": f"Token {token}",
+            "Content-Type": "application/json",
+        }
         response = requests.post(url, headers=headers, data=json.dumps(data))
         if response.status_code == 201:
             r = json.loads(response.text)
 
             # This will return the task id, which your application should store so that it can refer to it later
             # for managing tasks
-            return {"task_id":r["id"]}, 201
+            return {"task_id": r["id"]}, 201
         else:
             return response.text, response.status_code
+
 
 @app.route("/monitor")
 def monitor():
@@ -273,7 +284,7 @@ usage.from(start: -1h, stop: now())
         run_status = ""
         if task.status == "active":
             runs = tasks_api.get_runs(task.id, limit=1)
-            if len(runs) > 0: # new tasks my not have any runs yet
+            if len(runs) > 0:  # new tasks my not have any runs yet
                 run = runs[0]
                 started_at = run.started_at
                 run_status = run.status
@@ -285,10 +296,12 @@ usage.from(start: -1h, stop: now())
 
     return html, 200
 
+
 def register_invokable_script():
     # This function will store your query in influxdb, and return an id
     # You can then invoke the script and pass arguments for the parameters
     pass
+
 
 def find_or_create_bucket(bucket_to_find_or_create):
     # this function checks if the desired bucket exits, and creates it if needed
@@ -302,7 +315,9 @@ def find_or_create_bucket(bucket_to_find_or_create):
     try:
         # use the buckets api to find a bucket by its name
         bucket = client.buckets_api().find_bucket_by_name(bucket_to_find_or_create)
-        print(f"bucket ({bucket_to_find_or_create}) found with retention policy: {bucket.rp}")
+        print(
+            f"bucket ({bucket_to_find_or_create}) found with retention policy: {bucket.rp}"
+        )
 
     except ApiException as e:
         # The most likely problem is that the bucket does not exist, in which case add it
@@ -314,6 +329,9 @@ def find_or_create_bucket(bucket_to_find_or_create):
             print(f"Insufficent permsissions, exiting")
             exit()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     find_or_create_bucket(bucket_name)
-    app.run(host='0.0.0.0', port=5001, debug=True) # using port 5001, because MacOS has started listening to 5000
+    app.run(
+        host="0.0.0.0", port=5001, debug=True
+    )  # using port 5001, because MacOS has started listening to 5000
